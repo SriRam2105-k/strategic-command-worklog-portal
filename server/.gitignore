@@ -1,0 +1,9 @@
+node_modules
+dist
+.env
+*.csv
+*.txt
+exported_data/
+dev.db
+dev.db-journal
+query.log

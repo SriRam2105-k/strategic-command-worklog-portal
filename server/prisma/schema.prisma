@@ -1,0 +1,154 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String       @id @default(uuid())
+  name           String
+  rollNumber     String       @unique
+  password       String
+  role           String       // ADMIN, STUDENT
+  teamId         String?
+  status         String       // ONLINE, OFFLINE, PRESENT, ABSENT, OD
+  lastLogin      String?      // ISO string
+  
+  team           Team?        @relation(fields: [teamId], references: [id])
+  worklogs       Worklog[]
+  attendance     Attendance[]
+  sentMessages     Message[]    @relation("Sender")
+  receivedMessages Message[]    @relation("Recipient")
+  notifications    Notification[]
+  auditLogs        AuditLog[]
+  reviewsGiven     PeerReview[] @relation("Reviewer")
+  reviewsReceived  PeerReview[] @relation("Reviewee")
+}
+
+model Team {
+  id        String   @id @default(uuid())
+  name      String
+  projectId String?
+
+  project   Project? @relation(fields: [projectId], references: [id])
+  members   User[]
+}
+
+model Project {
+  id          String     @id @default(uuid())
+  name        String
+  description String
+  status      String     // ACTIVE, ARCHIVED
+  
+  teams       Team[]
+  milestones  Milestone[]
+  worklogs    Worklog[]
+}
+
+model Milestone {
+  id          String  @id @default(uuid())
+  projectId   String
+  label       String
+  isCompleted Boolean @default(false)
+  priority    String  // CRITICAL, NORMAL, LOW
+
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Worklog {
+  id        String   @id @default(uuid())
+  studentId String
+  projectId String
+  date      String
+  hours     Float
+  content   String
+  status    String   // SUBMITTED, REVIEWED
+  timestamp String   // ISO string (using String to match frontend type, though DateTime is better for DB)
+
+  student   User     @relation(fields: [studentId], references: [id])
+  project   Project  @relation(fields: [projectId], references: [id])
+}
+
+model Attendance {
+  id              String   @id @default(uuid())
+  studentId       String
+  date            String
+  status          String   // PRESENT, ABSENT, OD...
+  loginTime       String
+  logoutTime      String?
+  sessionDuration Float?
+
+  student   User     @relation(fields: [studentId], references: [id])
+}
+
+model Message {
+  id            String   @id @default(uuid())
+  senderId      String
+  recipientId   String
+  senderRole    String
+  recipientRole String
+  content       String
+  timestamp     String
+  status        String   // READ, UNREAD
+  attachmentUrl String?
+
+  sender      User     @relation("Sender", fields: [senderId], references: [id])
+  recipient   User     @relation("Recipient", fields: [recipientId], references: [id])
+}
+
+model Notification {
+  id             String   @id @default(uuid())
+  userId         String?
+  type           String   // success, warning, error, info, admin
+  priority       String   // high, medium, low
+  message        String
+  actionTab      String?
+  actionLabel    String?
+  isRead         Boolean  @default(false)
+  timestamp      String
+  actionRequired Boolean  @default(false)
+
+  user           User?    @relation(fields: [userId], references: [id])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String
+  userName  String
+  action    String
+  module    String
+  timestamp String
+
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model PeerReview {
+  id              String   @id @default(uuid())
+  reviewerId      String
+  studentId       String   // The reviewee
+  teamId          String
+  date            String
+  studentRating   Int
+  teamRating      Int
+  studentFeedback String   // Renamed from feedback
+  teamFeedback    String   // New field
+  reviewMethod    String   // FACE_TO_FACE, CALL, CHAT, COMBINED
+  
+  reviewer   User     @relation("Reviewer", fields: [reviewerId], references: [id])
+  reviewee   User     @relation("Reviewee", fields: [studentId], references: [id])
+  
+  // Note: 'studentId' in types maps to 'reviewee' here.
+}
+
+model ArchiveItem {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  category    String   // MANUAL, ASSET, PROTOCOL
+  url         String
+  addedBy     String
+  timestamp   String   // ISO string
+}
