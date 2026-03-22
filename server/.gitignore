@@ -9,15 +9,3 @@ dev.db-journal
 query.log
 credentials.json
 token.json
-check_sheets.ts
-check_users.ts
-fix_status.ts
-remove_demo_users.ts
-src/add_admins.ts
-src/add_demo_users.ts
-src/add_students.ts
-src/check_headers.ts
-src/cleanup_users.ts
-src/initSheets.ts
-src/migrate_attendance.ts
-src/sync_headers.ts
