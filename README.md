@@ -1,81 +1,87 @@
 # Strategic Command Worklog Portal
 
-The Strategic Command Worklog Portal is a full-stack application designed to streamline work logging, project management, and cross-team reviews. It features a modern interface, a secure backend, and integrations with Supabase (database) and AI services.
+The Strategic Command Worklog Portal is a full-stack web application built to streamline work logging, project management, team reviews, and admin oversight. It features a modern F1-inspired command-center UI, a Node.js/Express backend, and **Google Sheets as the data layer** — no separate database required.
 
 ## Architecture
-The repository is set up a monorepo containing two main parts:
-- **`client/`**: The frontend application (React, Vite, Vanilla CSS).
-- **`server/`**: The backend API server (Node.js, Express, Prisma ORM, Supabase PostgreSQL).
+
+This is a monorepo with two main parts:
+
+- **`client/`** — Frontend (React, Vite, TypeScript, Vanilla CSS)
+- **`server/`** — Backend API (Node.js, Express, TypeScript, Google Sheets API)
+
+Data is stored and read entirely from **Google Sheets** via a Google Service Account, making the app easy to inspect, share, and manage without a database.
+
+---
 
 ## Getting Started Locally
 
 ### Prerequisites
-Make sure you have [Node.js](https://nodejs.org/) installed on your machine.
+- [Node.js](https://nodejs.org/) (v18+)
+- A **Google Cloud Service Account** with the Sheets API enabled and a `credentials.json` key file
 
-### Installation
-1. Clone the repository to your local machine:
-   ```bash
-   git clone <your-github-repo-url>
-   cd strategic-command-worklog-portal
-   ```
-
-2. Install all dependencies across the root, client, and server:
-   ```bash
-   npm run install:all
-   ```
-
-### Environment Variables
-You need to set up your environment variables for both the client and the server.
-
-**Client Environment Variables (`client/.env.local`)**
-Create a `.env.local` file in the `client` directory and configure the necessary variables (like your Supabase URI and API keys):
-```env
-VITE_API_URL=http://localhost:3000
-# Add your Supabase and Gemini API variables here as needed
-```
-
-**Server Environment Variables (`server/.env`)**
-Create a `.env` file in the `server` directory and configure your Database URL:
-```env
-PORT=3000
-DATABASE_URL="postgresql://postgres:<password>@<supabase-host>:5432/postgres"
-# Add your Gemini API variables here
-```
-
-### Database Setup (Supabase / Prisma)
-Before running the app, make sure your database schema is pushed to Supabase and seeded:
+### 1. Clone the Repository
 ```bash
-npm run db:setup
+git clone https://github.com/SriRam2105-k/strategic-command-worklog-portal.git
+cd strategic-command-worklog-portal
 ```
 
-### Running the Application
+### 2. Install All Dependencies
+```bash
+npm run install:all
+```
 
-To start both the client and server concurrently in development mode, simply run:
+### 3. Configure the Server
+
+Create `server/.env` (copy from `server/.env.example`):
+```env
+PORT=3001
+JWT_SECRET="your-secure-random-secret"
+```
+
+Place your Google Service Account key file at:
+```
+server/credentials.json
+```
+> ⚠️ Never commit `credentials.json` or `.env` — they are already in `.gitignore`.
+
+### 4. Configure the Client
+
+Create `client/.env.local` (copy from `client/.env.local.example`):
+```env
+GEMINI_API_KEY=your-gemini-api-key-here
+```
+
+### 5. Run the App
+
+Start both frontend and backend concurrently:
 ```bash
 npm run dev
 ```
-Alternatively, you can start them individually:
-- Frontend only: `npm run dev:client`
-- Backend only: `npm run dev:server`
+
+Or start them individually:
+```bash
+npm run dev:client   # Frontend on http://localhost:5173
+npm run dev:server   # Backend on http://localhost:3001
+```
+
+---
 
 ## Deployment
 
-### Hosting the Frontend
-The frontend (`client/` folder) is a statically built web app and can be deployed directly to free hosting services like:
-- **Vercel**
-- **Netlify**
-- **GitHub Pages**
-*(Build Command: `npm run build`, Output Directory: `dist`)*
+### Frontend
+The `client/` folder can be deployed to any static host:
+- **Vercel** / **Netlify** / **GitHub Pages**
 
-### Hosting the Backend
-The backend (`server/` folder) needs to run on a Node.js server. Popular options include:
-- **Render**
-- **Railway**
-- **Heroku**
-*(Start Command: `node index.js` or `npm start` inside the `server` folder)*
+Build command: `npm run build` | Output directory: `dist`
 
-### Hosting the Database
-The project is configured to use **Supabase** (PostgreSQL) as its database.
+### Backend
+The `server/` folder requires a Node.js host:
+- **Render** / **Railway** / **Fly.io**
+
+Start command: `npm start` (inside `server/`)
+
+> Remember to add your environment variables and `credentials.json` as secrets in your hosting provider's dashboard.
 
 ---
-*Note: Make sure to never commit your `.env` or `.env.local` files to GitHub. They should be added to your `.gitignore` file.*
+
+*Never commit `.env`, `.env.local`, or `credentials.json` to GitHub.*
