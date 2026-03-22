@@ -68,19 +68,18 @@ npm run dev:server   # Backend on http://localhost:3001
 
 ## Deployment
 
-### Frontend
-The `client/` folder can be deployed to any static host:
-- **Vercel** / **Netlify** / **GitHub Pages**
+### Frontend (GitHub Pages)
+The frontend (`client/` folder) is automatically deployed to **GitHub Pages** whenever you push to the `main` branch. 
+- **URL**: `https://sriram2105-k.github.io/strategic-command-worklog-portal/`
+- **Automation**: Managed by the `.github/workflows/deploy.yml` action.
 
-Build command: `npm run build` | Output directory: `dist`
-
-### Backend
-The `server/` folder requires a Node.js host:
-- **Render** / **Railway** / **Fly.io**
-
-Start command: `npm start` (inside `server/`)
-
-> Remember to add your environment variables and `credentials.json` as secrets in your hosting provider's dashboard.
+### Backend (Required for functionality)
+> [!IMPORTANT]
+> **GitHub Pages ONLY hosts the frontend.**  
+> The backend (`server/` folder) must be hosted on a service that supports Node.js:
+> - **Render** / **Railway** / **Fly.io**
+> 
+> Without a deployed backend, the frontend will load, but features like logging in and worklog submissions will fail because they cannot reach the server.
 
 ---
 
