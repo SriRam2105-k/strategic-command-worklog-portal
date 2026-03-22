@@ -11,9 +11,11 @@ interface SidebarProps {
   userName: string;
   isOpen: boolean;
   onClose: () => void;
+  isStealth?: boolean;
+  onToggleStealth?: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, userRole, userName, isOpen, onClose }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, userRole, userName, isOpen, onClose, isStealth, onToggleStealth }) => {
   const filteredNav = NAVIGATION.filter(item => item.roles.includes(userRole));
 
   return (
@@ -70,6 +72,26 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, userRole, us
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Theme Toggle */}
+        <div className="mt-4 px-4">
+          <button
+            onClick={onToggleStealth}
+            className="w-full flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all group"
+          >
+            <div className="flex items-center gap-3">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isStealth ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                <Shield size={16} />
+              </div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-white transition-colors">
+                {isStealth ? 'STEALTH MODE: ON' : 'COMMAND MODE'}
+              </span>
+            </div>
+            <div className={`w-10 h-5 rounded-full relative transition-colors ${isStealth ? 'bg-indigo-600' : 'bg-slate-700'}`}>
+              <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${isStealth ? 'left-6' : 'left-1'}`}></div>
+            </div>
+          </button>
         </div>
       </div>
 

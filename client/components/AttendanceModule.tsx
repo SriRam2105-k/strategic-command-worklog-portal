@@ -28,7 +28,7 @@ const AttendanceModule: React.FC<Props> = ({ user, onStatusChange, onSelectUser 
     setRecords(dataService.getAttendance());
     let interval: any;
     if (user.status === AttendanceStatus.ONLINE) {
-      const record = dataService.getAttendance().find(a => a.studentId === user.id && a.date === todayStr);
+      const record = dataService.getAttendance().find(a => a.name === user.name && a.date === todayStr);
       if (record) {
         const login = new Date(record.loginTime).getTime();
         interval = setInterval(() => {

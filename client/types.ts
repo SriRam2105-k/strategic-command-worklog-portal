@@ -71,7 +71,7 @@ export interface PeerReview {
 
 export interface AttendanceRecord {
   id: string;
-  studentId: string;
+  name: string;
   date: string;
   loginTime: string;
   logoutTime?: string;

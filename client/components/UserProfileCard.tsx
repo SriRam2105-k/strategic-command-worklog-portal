@@ -11,11 +11,11 @@ const UserProfileCard: React.FC<UserProfileCardProps> = ({ user }) => {
     const rank = dataService.calculateUserRank(user);
     const worklogs = dataService.getWorklogs().filter(w => w.studentId === user.id);
     const reviews = dataService.getReviews().filter(r => r.reviewerId === user.id);
-    const attendance = dataService.getAttendance().filter(a => a.studentId === user.id);
+    const attendance = dataService.getAttendance().filter(a => a.name === user.name);
 
-    const totalHours = worklogs.reduce((sum, w) => sum + w.hours, 0);
+    const totalHours = worklogs.reduce((sum, w) => sum + (parseFloat(String(w.hours)) || 0), 0);
     const avgRating = reviews.length > 0
-        ? reviews.reduce((sum, r) => sum + r.studentRating, 0) / reviews.length
+        ? reviews.reduce((sum, r) => sum + (parseFloat(String(r.studentRating)) || 0), 0) / reviews.length
         : 0;
     const attendanceRate = attendance.length > 0
         ? (attendance.filter(a => a.status === 'PRESENT' || a.status === 'ONLINE').length / attendance.length) * 100

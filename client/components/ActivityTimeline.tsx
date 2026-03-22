@@ -20,21 +20,23 @@ const ActivityTimeline: React.FC<ActivityTimelineProps> = ({ user, limit = 10 })
         const logs = dataService.getAuditLogs();
 
         const events: ActivityEvent[] = logs.map(log => {
+            const action = log.action || '';
+            const module = log.module || '';
             let type: ActivityEvent['type'] = 'other';
-            if (log.action.includes('Login') || log.action.includes('Established')) type = 'login';
-            else if (log.action.includes('Logout') || log.action.includes('Terminated')) type = 'logout';
-            else if (log.module === 'Worklog') type = 'worklog';
-            else if (log.module === 'Review') type = 'review';
-            else if (log.module === 'Message') type = 'message';
-            else if (log.module === 'Team') type = 'team';
+            if (action.includes('Login') || action.includes('Established')) type = 'login';
+            else if (action.includes('Logout') || action.includes('Terminated')) type = 'logout';
+            else if (module === 'Worklog') type = 'worklog';
+            else if (module === 'Review') type = 'review';
+            else if (module === 'Message') type = 'message';
+            else if (module === 'Team') type = 'team';
 
             return {
-                id: log.id,
-                userId: log.userId,
-                userName: log.userName,
-                action: log.action,
+                id: log.id || String(Math.random()),
+                userId: log.userId || '',
+                userName: log.userName || 'Unknown',
+                action: action,
                 type,
-                timestamp: log.timestamp,
+                timestamp: log.timestamp || new Date().toISOString(),
             };
         });
 

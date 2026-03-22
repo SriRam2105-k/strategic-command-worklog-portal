@@ -4,7 +4,7 @@ import {
   Project, Message, Notification, AuditLog, PeerReview, ProjectMilestone, ArchiveItem
 } from '../types';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+let API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 type NotificationCallback = (notification: Notification) => void;
 const notificationSubscribers: NotificationCallback[] = [];
@@ -16,20 +16,20 @@ const api = {
     if (!res.ok) throw new Error(`API Error: ${res.status}`);
     return res.json();
   },
-  post: async (endpoint: string, data: any) => {
+  post: async (endpoint: string, payload: any) => {
     const res = await fetch(`${API_URL}${endpoint}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
+      body: JSON.stringify(payload)
     });
     if (!res.ok) throw new Error(`API Error: ${res.status}`);
     return res.json();
   },
-  put: async (endpoint: string, data: any) => {
+  put: async (endpoint: string, payload: any) => {
     const res = await fetch(`${API_URL}${endpoint}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
+      body: JSON.stringify(payload)
     });
     if (!res.ok) throw new Error(`API Error: ${res.status}`);
     return res.json();
@@ -61,6 +61,7 @@ let isSynced = false;
 export const dataService = {
   get isSynced() { return isSynced; },
   get apiUrl() { return API_URL; },
+  updateApiUrl: (url: string) => { API_URL = url; },
 
   async login(rollNumber: string, password: string): Promise<User> {
     const user = await api.post('/login', { rollNumber, password });
@@ -69,8 +70,26 @@ export const dataService = {
 
   async syncWithBackend(): Promise<boolean> {
     try {
-      const data = await api.get('/sync');
-      currentData = { ...data, auditLogs: data.auditlogs || [] }; // Handle casing difference if any
+      const fetchedData = await api.get('/sync');
+
+      // Detect new unread notifications for toasts
+      if (fetchedData.notifications) {
+        const oldIds = new Set(currentData.notifications.map((n: any) => n.id));
+        const newUnread = fetchedData.notifications.filter((n: any) =>
+          (!n.isRead && n.isRead !== 'true') &&
+          !oldIds.has(n.id)
+        );
+
+        // Only trigger for notifications that weren't there before
+        newUnread.forEach((n: any) => {
+          notificationSubscribers.forEach(cb => cb(n));
+        });
+      }
+
+      currentData = { ...currentData, ...fetchedData };
+      if (fetchedData.auditlogs) {
+        currentData.auditLogs = fetchedData.auditlogs;
+      }
       isSynced = true;
       return true;
     } catch (e) {
@@ -80,15 +99,25 @@ export const dataService = {
     }
   },
 
-  getUsers: () => currentData.users,
-  getTeams: () => currentData.teams,
-  getProjects: () => currentData.projects,
-  getWorklogs: () => currentData.worklogs,
-  getAttendance: () => currentData.attendance,
-  getMessages: () => currentData.messages,
-  getNotifications: () => currentData.notifications,
-  getAuditLogs: () => currentData.auditLogs,
-  getReviews: () => currentData.reviews,
+  getUsers: () => currentData.users || [],
+  getTeams: () => currentData.teams || [],
+  getProjects: () => currentData.projects || [],
+  getWorklogs: () => currentData.worklogs || [],
+  getAttendance: () => currentData.attendance || [],
+  getMessages: () => currentData.messages || [],
+  fetchMessages: async () => {
+    try {
+      const messages = await api.get('/messages');
+      currentData.messages = messages;
+      return messages;
+    } catch (e) {
+      console.error("Failed to fetch messages:", e);
+      return currentData.messages || [];
+    }
+  },
+  getNotifications: () => currentData.notifications || [],
+  getAuditLogs: () => currentData.auditLogs || [],
+  getReviews: () => currentData.reviews || [],
 
   subscribeToNotifications: (cb: NotificationCallback) => {
     notificationSubscribers.push(cb);
@@ -121,14 +150,18 @@ export const dataService = {
     if (n) n.isRead = true;
   },
 
-  markAllAsRead: async () => {
-    await api.put('/notifications/read-all', {});
-    currentData.notifications.forEach((n: Notification) => n.isRead = true);
+  markAllAsRead: async (userId: string) => {
+    await api.put('/notifications/read-all', { userId });
+    currentData.notifications.forEach((n: Notification) => {
+      if (n.userId === userId || (!n.userId && userId === 'admin')) {
+        n.isRead = true;
+      }
+    });
   },
 
-  clearNotifications: async () => {
-    await api.post('/notifications/clear', {});
-    currentData.notifications = [];
+  clearNotifications: async (userId: string) => {
+    await api.post('/notifications/clear', { userId });
+    currentData.notifications = currentData.notifications.filter((n: Notification) => n.userId !== userId && (n.userId || userId !== 'admin'));
   },
 
   logAction: async (userId: string, userName: string, action: string, module: string) => {
@@ -147,12 +180,13 @@ export const dataService = {
     if (user) user.status = status;
 
     const today = new Date().toISOString().split('T')[0];
-    const existing = currentData.attendance.find((a: AttendanceRecord) => a.studentId === studentId && a.date === today && !a.logoutTime);
+    if (!user) return;
+    const existing = currentData.attendance.find((a: AttendanceRecord) => a.name === user.name && a.date === today && !a.logoutTime);
 
     if (status === AttendanceStatus.ONLINE) {
       if (!existing) {
         const record = await api.post('/attendance', {
-          studentId,
+          name: user.name,
           date: today,
           loginTime: new Date().toISOString(),
           status: AttendanceStatus.PRESENT
@@ -267,8 +301,10 @@ export const dataService = {
 
   // Reward System Logic
   calculateUserRank: (user: User) => {
-    const userLogs = currentData.worklogs.filter((l: Worklog) => l.studentId === user.id);
-    const totalHours = userLogs.reduce((acc: number, l: any) => acc + l.hours, 0);
+    if (!user) return { title: 'Recruit', level: 1, xp: 0 };
+    const logs = currentData.worklogs || [];
+    const userLogs = logs.filter((l: Worklog) => l.studentId === user.id);
+    const totalHours = userLogs.reduce((acc: number, l: any) => acc + (parseFloat(String(l.hours)) || 0), 0);
     const xp = Math.floor(totalHours * 10);
 
     if (xp > 500) return { title: 'Master Tactician', level: 5, xp };
@@ -279,14 +315,16 @@ export const dataService = {
   },
 
   getUserTotalActivity: (userId: string) => {
-    const user = currentData.users.find((u: User) => u.id === userId);
+    const users = currentData.users || [];
+    const user = users.find((u: User) => u.id === userId);
     if (!user) return 0;
 
-    const userLogs = currentData.worklogs.filter((l: Worklog) => l.studentId === userId);
-    const workHours = userLogs.reduce((acc: number, l: any) => acc + l.hours, 0);
+    const logs = currentData.worklogs || [];
+    const userLogs = logs.filter((l: Worklog) => l.studentId === userId);
+    const workHours = userLogs.reduce((acc: number, l: any) => acc + (parseFloat(String(l.hours)) || 0), 0);
 
-    const attendance = currentData.attendance.filter((a: AttendanceRecord) => a.studentId === userId);
-    let sessionHours = attendance.reduce((acc: number, a: AttendanceRecord) => acc + (a.sessionDuration || 0), 0);
+    const attendance = currentData.attendance.filter((a: AttendanceRecord) => a.name === user.name);
+    let sessionHours = attendance.reduce((acc: number, a: AttendanceRecord) => acc + (parseFloat(String(a.sessionDuration)) || 0), 0);
 
     // If currently online, add the current session duration
     if (user.status === AttendanceStatus.ONLINE) {

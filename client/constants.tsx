@@ -1,4 +1,3 @@
-
 import React from 'react';
 import {
   LayoutDashboard,
@@ -27,10 +26,10 @@ export const NAVIGATION = [
   { id: 'teams', label: 'DIVISIONS', icon: <Users size={20} />, roles: [UserRole.ADMIN] },
   { id: 'projects', label: 'OPERATIONS', icon: <Briefcase size={20} />, roles: [UserRole.ADMIN] },
   { id: 'reports', label: 'INTEL REPORTS', icon: <FileDown size={20} />, roles: [UserRole.ADMIN] },
-  { id: 'analytics', label: 'FORCE TELEMETRY', icon: <BarChart3 size={20} />, roles: [UserRole.ADMIN] },
+  { id: 'analytics', label: 'ANALYTICS', icon: <BarChart3 size={20} />, roles: [UserRole.ADMIN] },
   { id: 'messages', label: 'SECURE COMMS', icon: <MessageSquare size={20} />, roles: [UserRole.STUDENT, UserRole.ADMIN] },
   { id: 'library', label: 'COMMAND ARCHIVE', icon: <Archive size={20} />, roles: [UserRole.STUDENT, UserRole.ADMIN] },
-  { id: 'security', label: 'COMMAND LOGS', icon: <ShieldCheck size={20} />, roles: [UserRole.ADMIN] },
+  { id: 'security', label: 'SECURITY', icon: <ShieldCheck size={20} />, roles: [UserRole.ADMIN] },
 ];
 
 export const THEME_GRADIENT = "from-slate-900 to-blue-900";

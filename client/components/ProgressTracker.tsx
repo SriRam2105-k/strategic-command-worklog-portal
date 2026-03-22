@@ -30,7 +30,7 @@ const ProgressTracker: React.FC<ProgressTrackerProps> = ({ user }) => {
         const oneWeekAgo = new Date();
         oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
         const thisWeekWorklogs = worklogs.filter(w => new Date(w.date) > oneWeekAgo);
-        const hoursThisWeek = thisWeekWorklogs.reduce((sum, w) => sum + w.hours, 0);
+        const hoursThisWeek = thisWeekWorklogs.reduce((sum, w) => sum + (parseFloat(String(w.hours)) || 0), 0);
 
         // Calculate progress to next rank based on XP
         const nextLevelXP = rank.level === 5 ? 1000 : [50, 150, 300, 500, 1000][rank.level];

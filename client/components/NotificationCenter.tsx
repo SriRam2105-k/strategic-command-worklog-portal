@@ -56,14 +56,12 @@ const NotificationCenter: React.FC<Props> = ({ user, onNavigate }) => {
   };
 
   const handleMarkAllRead = () => {
-    dataService.markAllAsRead();
+    dataService.markAllAsRead(user.id);
     setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
   };
 
   const clearAll = () => {
-    // Note: This clears the global store in our simple dataService.
-    // In a real app, this would only clear current user's.
-    dataService.clearNotifications();
+    dataService.clearNotifications(user.id);
     setNotifications([]);
     setIsOpen(false);
   };
@@ -108,16 +106,17 @@ const NotificationCenter: React.FC<Props> = ({ user, onNavigate }) => {
             className="fixed inset-0 z-[60] bg-black/5 backdrop-blur-[1px]"
             onClick={() => setIsOpen(false)}
           />
-          <div className="absolute right-0 mt-4 w-[320px] md:w-[420px] z-[70] animate-in slide-in-from-top-4 duration-300">
-            <div className="glass-glossy rounded-[2.5rem] border border-white shadow-2xl overflow-hidden flex flex-col max-h-[600px]">
+          <div className="absolute right-0 mt-4 w-[340px] md:w-[440px] z-[70] animate-in slide-in-from-top-4 duration-300">
+            <div className="glass-modern rounded-[2.5rem] border border-white/40 shadow-2xl overflow-hidden flex flex-col max-h-[650px] bg-white/80 backdrop-blur-3xl">
               {/* Header */}
               <div className="p-6 bg-white/20 border-b border-white/40">
                 <div className="flex items-center justify-between mb-6">
                   <div>
-                    <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
-                      Notifications
+                    <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-[0.2em] flex items-center gap-2">
+                       <span className="w-1.5 h-4 bg-indigo-600 rounded-full animate-pulse"></span>
+                      Command Center Notifications
                     </h3>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">System Connected</p>
+                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 opacity-60">Real-time Stream • Online</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -163,9 +162,9 @@ const NotificationCenter: React.FC<Props> = ({ user, onNavigate }) => {
                   <div
                     key={notif.id}
                     onClick={() => handleMarkRead(notif.id)}
-                    className={`p-4 rounded-2xl border transition-all animate-stagger relative group cursor-pointer ${notif.isRead
-                        ? 'bg-white/30 border-white/40'
-                        : 'bg-white border-indigo-100 shadow-md hover:shadow-indigo-100/50'
+                    className={`p-5 rounded-2xl border transition-all animate-stagger relative group cursor-pointer overflow-hidden ${notif.isRead
+                        ? 'bg-white/20 border-white/40 opacity-70 hover:opacity-100'
+                        : 'bg-white border-indigo-100 shadow-xl shadow-indigo-500/5 hover:shadow-indigo-500/10 hover:border-indigo-200'
                       }`}
                     style={{ animationDelay: `${idx * 0.05}s` }}
                   >
@@ -177,18 +176,30 @@ const NotificationCenter: React.FC<Props> = ({ user, onNavigate }) => {
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-start mb-1">
-                          <span className={`text-[8px] font-black uppercase tracking-widest ${notif.isRead ? 'text-slate-400' : 'text-indigo-600'}`}>
-                            {notif.type} • {notif.priority} priority
+                        <div className="flex justify-between items-start mb-1.5">
+                          <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
+                            notif.type === 'error' ? 'bg-rose-100 text-rose-600' : 
+                            notif.type === 'warning' ? 'bg-amber-100 text-amber-600' :
+                            notif.type === 'success' ? 'bg-emerald-100 text-emerald-600' :
+                            'bg-indigo-100 text-indigo-600'
+                          }`}>
+                            {notif.type}
                           </span>
                           <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
                             <Clock size={8} />
                             {new Date(notif.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
-                        <p className={`text-[10px] md:text-[11px] leading-relaxed ${notif.isRead ? 'text-slate-500' : 'text-slate-800 font-bold'}`}>
+                        <p className={`text-[11px] md:text-[12px] leading-snug tracking-tight ${notif.isRead ? 'text-slate-500' : 'text-slate-800 font-bold'}`}>
                           {notif.message}
                         </p>
+                        
+                        {!notif.isRead && (
+                          <div className="mt-1 flex items-center gap-2">
+                             <div className={`w-1 h-1 rounded-full ${getPriorityColor(notif.priority).split(' ')[0]}`}></div>
+                             <span className="text-[7px] font-black uppercase tracking-widest text-slate-400">{notif.priority} Priority</span>
+                          </div>
+                        )}
 
                         {notif.actionTab && !notif.isRead && (
                           <button

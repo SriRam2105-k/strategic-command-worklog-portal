@@ -1,6 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
-import { PrismaClient } from '@prisma/client';
+// import { PrismaClient } from '@prisma/client';
 import dotenv from 'dotenv';
 // Routes will be imported here
 import routes from './routes';
@@ -9,7 +9,7 @@ dotenv.config();
 
 const app = express();
 
-const prisma = new PrismaClient();
+// const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors());
@@ -44,4 +44,5 @@ app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
 });
 
+const prisma = {} as any; // Dummy export since DB is removed
 export { prisma };

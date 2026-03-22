@@ -43,11 +43,38 @@ const App: React.FC = () => {
   const [showUrlConfig, setShowUrlConfig] = useState(false);
   const [tempUrl, setTempUrl] = useState(dataService.apiUrl);
   const [rankFanfare, setRankFanfare] = useState({ isOpen: false, title: '', level: 0 });
+  const [isStealthMode, setIsStealthMode] = useState(() => localStorage.getItem('theme') === 'stealth');
   const lastRankLevel = useRef<number>(0);
+
+  useEffect(() => {
+    if (isStealthMode) {
+      document.body.classList.add('stealth-mode');
+      localStorage.setItem('theme', 'stealth');
+    } else {
+      document.body.classList.remove('stealth-mode');
+      localStorage.setItem('theme', 'command');
+    }
+  }, [isStealthMode]);
 
   useEffect(() => {
     refreshData();
   }, []);
+
+  // Ensure user is marked OFFLINE if they close the browser tab unexpectedly
+  useEffect(() => {
+    const handleUnload = () => {
+      if (currentUser) {
+        fetch(`${dataService.apiUrl}/users/${currentUser.id}/status`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: AttendanceStatus.OFFLINE }),
+          keepalive: true
+        });
+      }
+    };
+    window.addEventListener('beforeunload', handleUnload);
+    return () => window.removeEventListener('beforeunload', handleUnload);
+  }, [currentUser]);
 
   // Rank Change Watcher
   useEffect(() => {
@@ -86,6 +113,11 @@ const App: React.FC = () => {
 
     try {
       const user = await dataService.login(loginData.identifier.trim(), loginData.password);
+
+      // Normalize role to accommodate mismatched casing from the backend
+      if (user.role) {
+        user.role = String(user.role).toUpperCase() as UserRole;
+      }
 
       if (user.role !== selectedRole) {
         setLoginError("FAILURE: ROLE MISMATCH");
@@ -154,10 +186,10 @@ const App: React.FC = () => {
               {/* System Status */}
               <div className="flex items-center justify-between px-2 bg-black/20 py-3 rounded-2xl border border-cyan-500/20">
                 <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${isSyncing ? 'bg-amber-500 animate-pulse' : syncSuccess ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-rose-500'}`}></div>
+                  <div className={`w-2 h-2 rounded-full ${syncSuccess ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-rose-500'}`}></div>
                   <div className="flex flex-col">
                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">
-                      {isSyncing ? 'Syncing Data...' : syncSuccess ? 'System Online' : 'System Offline'}
+                      {syncSuccess ? 'System Online' : 'System Offline'}
                     </span>
                     {syncSuccess && (
                       <span className="text-[7px] font-bold text-slate-500 uppercase mt-1">
@@ -174,8 +206,8 @@ const App: React.FC = () => {
               </div>
 
               <div className="relative flex p-1 bg-black/40 rounded-2xl overflow-hidden">
-                <button onClick={() => setSelectedRole(UserRole.STUDENT)} className={`relative z-10 flex-1 py-4 text-[10px] font-black uppercase tracking-widest ${selectedRole === UserRole.STUDENT ? 'text-white bg-gradient-to-r from-blue-600 to-cyan-600 shadow-glow-cyan' : 'text-slate-500 hover:text-slate-300'} rounded-xl transition-all`}>Student</button>
-                <button onClick={() => setSelectedRole(UserRole.ADMIN)} className={`relative z-10 flex-1 py-4 text-[10px] font-black uppercase tracking-widest ${selectedRole === UserRole.ADMIN ? 'text-white bg-gradient-to-r from-cyan-600 to-cyan-700 shadow-glow-cyan' : 'text-slate-500 hover:text-slate-300'} rounded-xl transition-all`}>Admin</button>
+                <button onClick={() => { setSelectedRole(UserRole.STUDENT); setLoginData({ identifier: '', password: '' }); }} className={`relative z-10 flex-1 py-4 text-[10px] font-black uppercase tracking-widest ${selectedRole === UserRole.STUDENT ? 'text-white bg-gradient-to-r from-blue-600 to-cyan-600 shadow-glow-cyan' : 'text-slate-500 hover:text-slate-300'} rounded-xl transition-all`}>Student</button>
+                <button onClick={() => { setSelectedRole(UserRole.ADMIN); setLoginData({ identifier: '', password: '' }); }} className={`relative z-10 flex-1 py-4 text-[10px] font-black uppercase tracking-widest ${selectedRole === UserRole.ADMIN ? 'text-white bg-gradient-to-r from-cyan-600 to-cyan-700 shadow-glow-cyan' : 'text-slate-500 hover:text-slate-300'} rounded-xl transition-all`}>Admin</button>
               </div>
 
               <form onSubmit={handleLogin} className="space-y-8">
@@ -214,7 +246,7 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col lg:flex-row min-h-screen lg:h-screen w-full command-gradient overflow-x-hidden relative">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} userRole={currentUser.role} userName={currentUser.name} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} userRole={currentUser.role} userName={currentUser.name} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} isStealth={isStealthMode} onToggleStealth={() => setIsStealthMode(!isStealthMode)} />
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
         <header className="sticky top-0 h-16 md:h-24 px-4 md:px-12 flex items-center justify-between z-40 bg-white/60 backdrop-blur-md shrink-0 border-b border-indigo-100/50">
           <div className="flex items-center gap-4">

@@ -16,6 +16,27 @@ const WorklogModule: React.FC<Props> = ({ user }) => {
   const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]);
   const [searchId, setSearchId] = useState('');
 
+  // Auto-Save Effect
+  React.useEffect(() => {
+    const savedDraft = localStorage.getItem(`worklog_draft_${user.id}`);
+    if (savedDraft) {
+      try {
+        const { content: c, hours: h, projectId: p } = JSON.parse(savedDraft);
+        if (c) setContent(c);
+        if (h) setHours(h);
+        if (p) setSelectedProjectId(p);
+      } catch (e) {
+        console.warn("Invalid draft format:", e);
+        localStorage.removeItem(`worklog_draft_${user.id}`);
+      }
+    }
+  }, [user.id]);
+
+  React.useEffect(() => {
+    const draft = { content, hours, projectId: selectedProjectId };
+    localStorage.setItem(`worklog_draft_${user.id}`, JSON.stringify(draft));
+  }, [content, hours, selectedProjectId, user.id]);
+
   // Fix: UserRole.ADMIN does not exist, using UserRole.COMMANDER
   const isAdmin = user.role === UserRole.ADMIN;
   const activeProjects = dataService.getProjects().filter(p => p.status === 'ACTIVE');
@@ -47,6 +68,7 @@ const WorklogModule: React.FC<Props> = ({ user }) => {
     dataService.logAction(user.id, user.name, `Worklog Submitted`, "Worklogs");
     setContent('');
     setSelectedProjectId('');
+    localStorage.removeItem(`worklog_draft_${user.id}`);
   };
 
   if (isAdmin) {

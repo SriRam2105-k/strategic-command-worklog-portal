@@ -16,7 +16,7 @@ const CalendarWidget: React.FC<CalendarWidgetProps> = ({ user, onNavigate }) => 
     const monthName = currentDate.toLocaleString('default', { month: 'long' });
     const year = currentDate.getFullYear();
 
-    const attendanceRecords = dataService.getAttendance().filter(a => a.studentId === user.id);
+    const attendanceRecords = dataService.getAttendance().filter(a => a.name === user.name);
 
     const getAttendanceForDate = (day: number) => {
         const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);

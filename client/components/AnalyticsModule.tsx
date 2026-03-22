@@ -97,8 +97,7 @@ const AnalyticsModule: React.FC<Props> = ({ targetUserId, onResetTarget }) => {
       return {
         subject: team.name,
         Readiness: milestonesPercent,
-        Consistency: effortScore,
-        Engagement: Math.random() * 50 + 50, // Mocking review data for now
+        Engagement: 0, // Replaced mock review data with 0 until real data available
         fullMark: 100,
       };
     });
@@ -116,6 +115,14 @@ const AnalyticsModule: React.FC<Props> = ({ targetUserId, onResetTarget }) => {
     }
     return data;
   }, [worklogs]);
+
+  const teamDistributionData = useMemo(() => {
+    return teams.map(team => {
+      const teamWorklogs = worklogs.filter(l => team.studentIds.includes(l.studentId));
+      const totalHrs = teamWorklogs.reduce((acc, l) => acc + l.hours, 0);
+      return { name: team.name, hours: totalHrs };
+    }).filter(d => d.hours > 0);
+  }, [teams, worklogs]);
 
   const stats = useMemo(() => {
     const totalHours = selectedOp
@@ -146,16 +153,16 @@ const AnalyticsModule: React.FC<Props> = ({ targetUserId, onResetTarget }) => {
   };
 
   return (
-    <div className="space-y-6 md:space-y-12 py-4 md:py-6 pb-20">
+    <div className="space-y-10 md:space-y-16 py-4 md:py-6 pb-20">
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 animate-stagger">
         <div className="space-y-1.5">
-          <h2 className="text-2xl md:text-4xl font-black text-slate-800 tracking-tighter-custom uppercase">
+          <h2 className="text-2xl md:text-5xl font-black text-slate-800 tracking-tighter-custom uppercase">
             {selectedOp ? 'Operative' : 'Strategic'} <span className="text-indigo-600">Intel</span>
           </h2>
           <div className="flex items-center gap-2">
             <ShieldCheck size={14} className="text-indigo-500" />
             <p className="text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">
-              {selectedOp ? `DIRECT TELEMETRY: ID ${selectedOp.rollNumber}` : 'GLOBAL COMMAND OVERVIEW ACTIVE'}
+              {selectedOp ? `DIRECT ANALYTICS: ID ${selectedOp.rollNumber}` : 'GLOBAL COMMAND OVERVIEW ACTIVE'}
             </p>
           </div>
         </div>
@@ -181,27 +188,110 @@ const AnalyticsModule: React.FC<Props> = ({ targetUserId, onResetTarget }) => {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8">
-        <StatCard label="Live Compliance" value={`${stats.compliance}%`} sub="Daily reporting rate" icon={<Activity size={20} />} color="indigo" />
-        <StatCard label="Effort Average" value={`${stats.avgHrs}h`} sub="Daily mission volume" icon={<Zap size={20} />} color="cyan" />
-        <StatCard label="System Vitality" value={`${stats.systemHealth}%`} sub="Review satisfaction" icon={<Activity size={20} />} color="emerald" />
-        <StatCard label="Total Output" value={stats.totalHours} sub="Cumulative hours" icon={<Clock size={20} />} color="slate" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 md:gap-10">
+        <StatCard label="Live Compliance" value={`${stats.compliance}%`} sub="Daily reporting rate" icon={<Activity size={24} />} color="indigo" />
+        <StatCard label="Effort Average" value={`${stats.avgHrs}h`} sub="Daily mission volume" icon={<Zap size={24} />} color="cyan" />
+        <StatCard label="System Vitality" value={`${stats.systemHealth}%`} sub="Review satisfaction" icon={<Activity size={24} />} color="emerald" />
+        <StatCard label="Total Output" value={stats.totalHours} sub="Cumulative hours" icon={<Clock size={24} />} color="slate" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-10">
-        <div className="lg:col-span-8 space-y-6 md:space-y-10">
-          {/* Mission Intensity Heatmap */}
-          <div className="glass-panel p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] border border-white">
-            <div className="flex justify-between items-center mb-8">
-              <div>
-                <p className="text-[9px] font-black text-indigo-600 uppercase tracking-widest">Operational Density</p>
-                <h3 className="text-xl md:text-3xl font-black text-slate-900 uppercase">Mission Intensity</h3>
+      <div className="grid grid-cols-12 gap-8 md:gap-12">
+        {/* Row 1: Operational Trend Full Width */}
+        <div className="col-span-12">
+          <div className="glass-panel p-8 md:p-12 rounded-[3rem] border border-white">
+            <div className="flex items-center justify-between mb-10">
+              <div className="flex items-center gap-4">
+                <div className="bg-indigo-100 p-3 rounded-2xl"><TrendingUp className="text-indigo-600" size={28} /></div>
+                <h3 className="text-xl md:text-3xl font-black text-slate-900 uppercase tracking-tighter">Operational Trend</h3>
               </div>
-              <div className="flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-full text-[9px] font-black text-slate-500">
-                <Layers size={12} /> 70 DAY CYCLE
+              <div className="text-right">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Performance Matrix</p>
+                <p className="text-sm font-black text-indigo-600 uppercase">14-Day Cycle</p>
               </div>
             </div>
-            <div className="flex flex-wrap gap-1.5 md:gap-2 justify-center lg:justify-start">
+            <div className="h-[450px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={trendData}>
+                  <defs>
+                    <linearGradient id="colorHours" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                  <XAxis dataKey="date" tick={{fontSize: 10, fontWeight: 900, fill: '#64748B'}} dy={10} />
+                  <YAxis tick={{fontSize: 10, fontWeight: 900, fill: '#64748B'}} dx={-10} />
+                  <Tooltip contentStyle={{borderRadius: '1.5rem', border: 'none', background: 'rgba(255,255,255,0.95)', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontSize: '12px', fontWeight: 900}} />
+                  <Area type="monotone" dataKey="hours" stroke="#8B5CF6" fillOpacity={1} fill="url(#colorHours)" strokeWidth={4} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+
+        {/* Row 2: Strategic Breakdown */}
+        <div className="col-span-12 lg:col-span-6">
+          <div className="glass-panel p-8 md:p-12 rounded-[3rem] border border-white h-full">
+            <div className="flex items-center gap-4 mb-10">
+              <div className="bg-indigo-100 p-3 rounded-2xl"><Layers className="text-indigo-600" size={28} /></div>
+              <h3 className="text-xl md:text-3xl font-black text-slate-900 uppercase tracking-tighter">Project Allocation</h3>
+            </div>
+            <div className="h-[400px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={projectEffortData} cx="50%" cy="50%" innerRadius={80} outerRadius={120} paddingAngle={8} dataKey="value">
+                    {projectEffortData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={{borderRadius: '1.5rem', border: 'none', background: 'rgba(255,255,255,0.95)', fontSize: '12px', fontWeight: 900}} />
+                  <Legend verticalAlign="bottom" align="center" iconType="circle" wrapperStyle={{paddingTop: '20px'}} formatter={(value) => <span className="text-[11px] font-black uppercase text-slate-600 tracking-wider">{value}</span>} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+
+        <div className="col-span-12 lg:col-span-6">
+          <div className="glass-panel p-8 md:p-12 rounded-[3rem] border border-white h-full">
+            <div className="flex items-center gap-4 mb-10">
+              <div className="bg-indigo-100 p-3 rounded-2xl"><Users className="text-indigo-600" size={28} /></div>
+              <h3 className="text-xl md:text-3xl font-black text-slate-900 uppercase tracking-tighter">Division Output</h3>
+            </div>
+            <div className="h-[400px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={teamDistributionData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                  <XAxis dataKey="name" tick={{fontSize: 10, fontWeight: 900, fill: '#64748B'}} dy={10} />
+                  <YAxis tick={{fontSize: 10, fontWeight: 900, fill: '#64748B'}} dx={-10} />
+                  <Tooltip cursor={{fill: 'transparent'}} contentStyle={{borderRadius: '1.5rem', border: 'none', background: 'rgba(255,255,255,0.95)', fontSize: '12px', fontWeight: 900}} />
+                  <Bar dataKey="hours" radius={[15, 15, 0, 0]} barSize={40}>
+                    {teamDistributionData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+
+        {/* Row 3: Mission Intensity Full Width */}
+        <div className="col-span-12">
+          <div className="glass-panel p-8 md:p-12 rounded-[3rem] border border-white">
+            <div className="flex justify-between items-center mb-10">
+              <div className="flex items-center gap-4">
+                <div className="bg-indigo-100 p-3 rounded-2xl"><Activity className="text-indigo-600" size={28} /></div>
+                <div>
+                  <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest leading-none">Operational Density</p>
+                  <h3 className="text-xl md:text-3xl font-black text-slate-900 uppercase tracking-tighter">Mission Intensity</h3>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 px-6 py-3 bg-slate-900 text-white rounded-full text-[10px] font-black tracking-widest">
+                <Calendar size={14} className="text-indigo-400" /> 70 DAY INTEL CYCLE
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 md:gap-3 justify-center">
               {heatmapData.map((day, i) => {
                 const intensity = day.count === 0 ? 'bg-slate-100' :
                   day.count < 3 ? 'bg-indigo-200' :
@@ -211,71 +301,80 @@ const AnalyticsModule: React.FC<Props> = ({ targetUserId, onResetTarget }) => {
                   <div
                     key={day.date}
                     title={`${day.date}: ${day.count} logs`}
-                    className={`w-3 h-3 md:w-5 md:h-5 rounded-sm transition-all cursor-crosshair hover:scale-125 ${intensity}`}
+                    className={`w-4 h-4 md:w-6 md:h-6 rounded-md transition-all cursor-crosshair hover:scale-150 z-10 hover:shadow-2xl ${intensity}`}
                   ></div>
                 );
               })}
             </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10">
-            {/* Force Readiness Radar */}
-            <div className="glass-panel p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] border border-white">
-              <div className="flex items-center gap-3 mb-8">
-                <Target className="text-indigo-600" size={24} />
-                <h3 className="text-lg md:text-2xl font-black text-slate-900 uppercase">Force Readiness</h3>
-              </div>
-              <div className="h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
-                    <PolarGrid stroke="#E2E8F0" />
-                    <PolarAngleAxis dataKey="subject" tick={{ fontSize: 9, fontWeight: 900, fill: '#64748B' }} />
-                    <PolarRadiusAxis angle={30} domain={[0, 100]} axisLine={false} tick={false} />
-                    <Radar name="Readiness" dataKey="Readiness" stroke="#8B5CF6" fill="#8B5CF6" fillOpacity={0.5} />
-                    <Radar name="Consistency" dataKey="Consistency" stroke="#06B6D4" fill="#06B6D4" fillOpacity={0.5} />
-                    <Tooltip contentStyle={{ borderRadius: '1rem', border: 'none', background: 'rgba(255,255,255,0.9)', fontSize: '10px', fontWeight: 900 }} />
-                  </RadarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Performance Leaderboard */}
-            <div className="glass-panel p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] border border-white">
-              <div className="flex items-center gap-3 mb-8">
-                <Award className="text-indigo-600" size={24} />
-                <h3 className="text-lg md:text-2xl font-black text-slate-900 uppercase">MVP Operatives</h3>
-              </div>
-              <div className="space-y-6">
-                {performanceData.map((item, idx) => (
-                  <div key={item.id} onClick={() => setSelectedUserId(item.id)} className="group cursor-pointer">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                        <span className="w-4 h-4 rounded-full bg-slate-900 text-white text-[8px] flex items-center justify-center">{idx + 1}</span>
-                        {item.name}
-                      </span>
-                      <span className="text-[10px] font-black text-indigo-600">{item.hours}h</span>
-                    </div>
-                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-indigo-500 to-indigo-600 transition-all duration-1000 group-hover:shadow-glow-indigo"
-                        style={{ width: `${(item.hours / (performanceData[0].hours || 1)) * 100}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+            <div className="flex justify-center gap-6 mt-10 text-[9px] font-black uppercase text-slate-400 tracking-widest">
+              <div className="flex items-center gap-2"><div className="w-3 h-3 bg-slate-100 rounded-sm"></div> NO DATA</div>
+              <div className="flex items-center gap-2"><div className="w-3 h-3 bg-indigo-200 rounded-sm"></div> LOW</div>
+              <div className="flex items-center gap-2"><div className="w-3 h-3 bg-indigo-400 rounded-sm"></div> MED</div>
+              <div className="flex items-center gap-2"><div className="w-3 h-3 bg-indigo-600 rounded-sm"></div> CRITICAL</div>
             </div>
           </div>
         </div>
 
-        {/* Audit Log / Detail Panel */}
-        <div className="lg:col-span-4 h-full">
-          <div className="glass-panel p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] h-full border border-white overflow-hidden flex flex-col min-h-[500px]">
-            <div className="flex items-center gap-3 mb-8 border-b border-slate-100 pb-4">
-              <Users className="text-indigo-600" size={20} />
-              <h3 className="text-sm md:text-lg font-black text-slate-900 uppercase tracking-widest">Personnel Status</h3>
+        {/* Row 4: Readiness & MVP */}
+        <div className="col-span-12 lg:col-span-12 xl:col-span-6">
+          <div className="glass-panel p-8 md:p-12 rounded-[3rem] border border-white h-full">
+            <div className="flex items-center gap-4 mb-10">
+              <div className="bg-indigo-100 p-3 rounded-2xl"><Target className="text-indigo-600" size={28} /></div>
+              <h3 className="text-xl md:text-3xl font-black text-slate-900 uppercase tracking-tighter">Force Readiness</h3>
             </div>
-            <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4 pr-2">
+            <div className="h-[400px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
+                  <PolarGrid stroke="#E2E8F0" />
+                  <PolarAngleAxis dataKey="subject" tick={{ fontSize: 11, fontWeight: 900, fill: '#64748B' }} />
+                  <PolarRadiusAxis angle={30} domain={[0, 100]} axisLine={false} tick={false} />
+                  <Radar name="Readiness" dataKey="Readiness" stroke="#8B5CF6" fill="#8B5CF6" fillOpacity={0.6} strokeWidth={3} />
+                  <Tooltip contentStyle={{ borderRadius: '1.5rem', border: 'none', background: 'rgba(255,255,255,0.95)', fontSize: '12px', fontWeight: 900 }} />
+                </RadarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+
+        <div className="col-span-12 lg:col-span-12 xl:col-span-6">
+          <div className="glass-panel p-8 md:p-12 rounded-[3rem] border border-white h-full">
+            <div className="flex items-center gap-4 mb-10">
+              <div className="bg-indigo-100 p-3 rounded-2xl"><Award className="text-indigo-600" size={28} /></div>
+              <h3 className="text-xl md:text-3xl font-black text-slate-900 uppercase tracking-tighter">MVP Operatives</h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+              {performanceData.map((item, idx) => (
+                <div key={item.id} onClick={() => setSelectedUserId(item.id)} className="group cursor-pointer">
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-[12px] font-black text-slate-900 uppercase tracking-wider flex items-center gap-3">
+                      <span className="w-6 h-6 rounded-lg bg-slate-900 text-white text-[10px] flex items-center justify-center shadow-lg">{idx + 1}</span>
+                      {item.name}
+                    </span>
+                    <span className="text-xs font-black text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">{item.hours}h</span>
+                  </div>
+                  <div className="h-3 bg-slate-100 rounded-full overflow-hidden shadow-inner">
+                    <div
+                      className="h-full bg-gradient-to-r from-indigo-500 to-indigo-700 transition-all duration-1000 group-hover:shadow-glow-indigo group-hover:scale-x-105 origin-left"
+                      style={{ width: `${(item.hours / (performanceData[0].hours || 1)) * 100}%` }}
+                    ></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Row 5: Personnel Status Relocated to Bottom */}
+        <div className="col-span-12 mt-12">
+          <div className="glass-panel p-8 md:p-12 rounded-[3rem] border border-white">
+            <div className="flex items-center justify-between mb-10 border-b border-slate-100 pb-8">
+              <div className="flex items-center gap-4">
+                <div className="bg-indigo-100 p-3 rounded-2xl"><Users className="text-indigo-600" size={28} /></div>
+                <h3 className="text-xl md:text-3xl font-black text-slate-900 uppercase tracking-tighter">Active Personnel Directory</h3>
+              </div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Global Status Registry</p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 max-h-[600px] overflow-y-auto pr-4 custom-scrollbar">
               {allOperatives
                 .filter(u => u.rollNumber.includes(searchTerm.toUpperCase()) || u.name.toUpperCase().includes(searchTerm.toUpperCase()))
                 .map(op => {
@@ -285,20 +384,20 @@ const AnalyticsModule: React.FC<Props> = ({ targetUserId, onResetTarget }) => {
                     <div
                       key={op.id}
                       onClick={() => setSelectedUserId(op.id)}
-                      className={`flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer ${isActive ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-white/50 border-slate-100 hover:bg-white text-slate-900'}`}
+                      className={`flex items-center justify-between p-6 rounded-[2rem] border transition-all cursor-pointer ${isActive ? 'bg-indigo-600 border-indigo-600 text-white shadow-2xl scale-105 z-20' : 'bg-white/50 border-slate-100 hover:bg-white text-slate-900 hover:shadow-xl'}`}
                     >
                       <div className="flex items-center gap-4">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm ${isActive ? 'bg-white/20' : 'bg-indigo-100 text-indigo-600'}`}>
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg shadow-sm ${isActive ? 'bg-white/20' : 'bg-indigo-100 text-indigo-600'}`}>
                           {op.name[0]}
                         </div>
                         <div>
-                          <p className={`text-[10px] font-black uppercase ${isActive ? 'text-white' : 'text-slate-900'}`}>{op.name}</p>
-                          <p className={`text-[8px] font-bold uppercase ${isActive ? 'text-indigo-100' : 'text-slate-400'}`}>{op.rollNumber}</p>
+                          <p className={`text-xs font-black uppercase tracking-tight ${isActive ? 'text-white' : 'text-slate-900'}`}>{op.name}</p>
+                          <p className={`text-[9px] font-bold uppercase tracking-widest ${isActive ? 'text-indigo-100' : 'text-slate-400'}`}>{op.rollNumber}</p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className={`text-[10px] font-black ${isActive ? 'text-white' : 'text-indigo-600'}`}>{hrs}h</p>
-                        <div className={`w-2 h-2 rounded-full ml-auto mt-1 ${op.status === AttendanceStatus.ONLINE ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}></div>
+                        <p className={`text-sm font-black ${isActive ? 'text-white' : 'text-indigo-600'}`}>{hrs}h</p>
+                        <div className={`w-3 h-3 rounded-full ml-auto mt-2 border-2 border-white ${op.status === AttendanceStatus.ONLINE ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}></div>
                       </div>
                     </div>
                   );

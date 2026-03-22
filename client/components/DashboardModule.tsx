@@ -25,6 +25,59 @@ import TeamCollaborationPanel from './TeamCollaborationPanel';
 import CalendarWidget from './CalendarWidget';
 import ActivityTimeline from './ActivityTimeline';
 
+const PulseActivity: React.FC = () => (
+  <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full animate-pulse">
+    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></div>
+    <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest">Live Pulse: Active</span>
+  </div>
+);
+
+const RadialProgress: React.FC<{ value: number, size?: number }> = ({ value, size = 120 }) => {
+  const radius = size * 0.4;
+  const stroke = 8;
+  const normalizedRadius = radius - stroke * 2;
+  const circumference = normalizedRadius * 2 * Math.PI;
+  const safeValue = isNaN(value) ? 0 : Math.min(100, Math.max(0, value));
+  const strokeDashoffset = circumference - (safeValue / 100) * circumference;
+
+  return (
+    <div className="relative flex items-center justify-center">
+      <svg height={size} width={size} className="rotate-[-90deg]">
+        <circle
+          stroke="rgba(79, 70, 229, 0.1)"
+          fill="transparent"
+          strokeWidth={stroke}
+          r={normalizedRadius}
+          cx={size / 2}
+          cy={size / 2}
+        />
+        <circle
+          stroke="url(#gradient-indigo)"
+          fill="transparent"
+          strokeWidth={stroke}
+          strokeDasharray={circumference + ' ' + circumference}
+          style={{ strokeDashoffset }}
+          strokeLinecap="round"
+          r={normalizedRadius}
+          cx={size / 2}
+          cy={size / 2}
+          className="transition-all duration-1000 ease-out"
+        />
+        <defs>
+          <linearGradient id="gradient-indigo" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#4F46E5" />
+            <stop offset="100%" stopColor="#06B6D4" />
+          </linearGradient>
+        </defs>
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-xl font-black text-slate-900">{value}%</span>
+        <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Mission</span>
+      </div>
+    </div>
+  );
+};
+
 interface Props {
   user: User;
   onNavigate?: (tab: string) => void;
@@ -35,16 +88,24 @@ const DashboardModule: React.FC<Props> = ({ user, onNavigate, onSelectUser }) =>
   // Fix: UserRole.ADMIN does not exist, using UserRole.COMMANDER
   const isAdmin = user.role === UserRole.ADMIN;
 
-  const team = dataService.getTeams().find(t => t.id === user.teamId);
-  const project = dataService.getProjects().find(p => p.id === team?.projectId);
-  const teamMembers = dataService.getUsers().filter(u => team?.studentIds.includes(u.id));
-  const myLogs = dataService.getWorklogs().filter(l => l.studentId === user.id);
-  const totalHours = dataService.getUserTotalActivity(user.id);
+  const users = dataService.getUsers() || [];
+  const teams = dataService.getTeams() || [];
+  const projects = dataService.getProjects() || [];
+  const worklogs = dataService.getWorklogs() || [];
+  
+  const team = teams.find(t => t.id === user.teamId);
+  const project = projects.find(p => p.id === team?.projectId);
+  const teamMembers = users.filter(u => team?.studentIds?.includes(u.id));
+  const myLogs = worklogs.filter(l => l.studentId === user.id);
+  const totalHours = dataService.getUserTotalActivity(user.id) || 0;
   const recentLogs = myLogs.slice(-5).reverse();
   const rank = useMemo(() => dataService.calculateUserRank(user), [user, myLogs]);
 
+
   const getTimeAgo = (timestamp: string) => {
+    if (!timestamp) return 'UNKNOWN';
     const diff = Date.now() - new Date(timestamp).getTime();
+    if (isNaN(diff)) return 'UNKNOWN';
     const hrs = diff / (1000 * 60 * 60);
     if (hrs < 1) return `${Math.floor(diff / (1000 * 60))}M AGO`;
     if (hrs < 24) return `${hrs.toFixed(1)}H AGO`;
@@ -53,12 +114,8 @@ const DashboardModule: React.FC<Props> = ({ user, onNavigate, onSelectUser }) =>
 
   // ... (keeping progress logic same)
 
-  const allUsers = dataService.getUsers();
-  const allProjects = dataService.getProjects();
-  const allLogs = dataService.getWorklogs();
-  // Fix: UserRole.STUDENT does not exist, using UserRole.OPERATIVE
-  const activeStudents = allUsers.filter(u => u.status === AttendanceStatus.ONLINE && u.role === UserRole.STUDENT);
-  const globalRecentLogs = allLogs.slice(-8).reverse();
+  const activeStudents = users.filter(u => u?.status === AttendanceStatus.ONLINE && (u?.role === UserRole.STUDENT || (u?.role as any) === 'OPERATIVE'));
+  const globalRecentLogs = worklogs.slice(-8).reverse();
 
   return (
     <div className="space-y-6 md:space-y-12 py-2 md:py-6 pb-10">
@@ -93,10 +150,10 @@ const DashboardModule: React.FC<Props> = ({ user, onNavigate, onSelectUser }) =>
             <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:scale-110 transition-transform">
               <Trophy size={40} />
             </div>
-            <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
+            <div className={`w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center shrink-0`}>
               <Award size={24} />
             </div>
-            <div className="text-left relative z-10">
+            <div className="text-left relative z-10 mr-4">
               <p className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] text-indigo-200">Current Rank</p>
               <p className="text-sm md:text-xl font-black tracking-tight uppercase">{rank.title}</p>
               <div className="flex gap-0.5 mt-1.5">
@@ -105,14 +162,24 @@ const DashboardModule: React.FC<Props> = ({ user, onNavigate, onSelectUser }) =>
                 ))}
               </div>
             </div>
+            <div className="hidden sm:block">
+              <RadialProgress value={Math.min(100, (rank.level / 5) * 100)} size={80} />
+            </div>
           </div>
         )}
       </div >
 
+      <div className="flex items-center justify-between animate-fade-in delay-200">
+        <div className="flex items-center gap-4">
+          <PulseActivity />
+          <div className="h-px w-24 bg-slate-200 hidden md:block"></div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8">
-        <MetricCard label={isAdmin ? "Total Students" : "Total Activity"} value={isAdmin ? allUsers.length.toString() : `${totalHours}h`} sub={isAdmin ? "Enrolled" : "Combined Effort"} icon={isAdmin ? <Users size={18} /> : <Clock size={18} />} color={isAdmin ? "cyan" : "indigo"} delay="delay-100" />
+        <MetricCard label={isAdmin ? "Total Students" : "Total Activity"} value={isAdmin ? users.length.toString() : `${totalHours}h`} sub={isAdmin ? "Enrolled" : "Combined Effort"} icon={isAdmin ? <Users size={18} /> : <Clock size={18} />} color={isAdmin ? "cyan" : "indigo"} delay="delay-100" />
         <MetricCard label={isAdmin ? "Online" : "Worklogs"} value={isAdmin ? activeStudents.length.toString() : myLogs.length.toString()} sub={isAdmin ? "Active Now" : "Submitted"} icon={isAdmin ? <Activity size={18} /> : <TrendingUp size={18} />} color={isAdmin ? "emerald" : "cyan"} delay="delay-200" />
-        <MetricCard label={isAdmin ? "Active Projects" : "System"} value={isAdmin ? allProjects.length.toString() : "Online"} sub={isAdmin ? "Ongoing" : "Status"} icon={isAdmin ? <Target size={18} /> : <Zap size={18} />} color={isAdmin ? "indigo" : "emerald"} delay="delay-300" />
+        <MetricCard label={isAdmin ? "Active Projects" : "System"} value={isAdmin ? projects.length.toString() : "Online"} sub={isAdmin ? "Ongoing" : "Status"} icon={isAdmin ? <Target size={18} /> : <Zap size={18} />} color={isAdmin ? "indigo" : "emerald"} delay="delay-300" />
         <MetricCard label={isAdmin ? "Sync Status" : "Status"} value={isAdmin ? "Active" : user.status} sub={isAdmin ? "Verified" : "Current"} icon={isAdmin ? <Cpu size={18} /> : <Activity size={18} />} color="slate" delay="delay-400" />
       </div>
 
@@ -173,17 +240,17 @@ const DashboardModule: React.FC<Props> = ({ user, onNavigate, onSelectUser }) =>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-6">
                   {/* Fix: UserRole.STUDENT does not exist, using UserRole.OPERATIVE */}
-                  {(isAdmin ? allUsers.filter(u => u.role === UserRole.STUDENT).slice(0, 4) : teamMembers).map((member) => (
+                  {(isAdmin ? users.filter(u => u.role === UserRole.STUDENT || (u.role as any) === 'OPERATIVE').slice(0, 4) : teamMembers).map((member) => (
                     <div key={member.id} onClick={() => isAdmin && onSelectUser?.(member.id)} className={`flex items-center gap-3 md:gap-5 p-4 md:p-6 bg-white/40 rounded-2xl md:rounded-[2.5rem] border border-white transition-all hover:shadow-lg ${isAdmin ? 'cursor-pointer hover:bg-white/60' : 'cursor-default'}`}>
                       <div className="relative shrink-0">
                         <div className={`w-12 h-12 md:w-16 md:h-16 rounded-xl md:rounded-3xl flex items-center justify-center font-black text-white ${isAdmin ? 'bg-gradient-to-br from-cyan-600 to-cyan-700' : 'bg-gradient-to-br from-indigo-600 to-indigo-700'}`}>
-                          {member.name[0]}
+                          {member.name ? member.name[0] : '?'}
                         </div>
                         <div className={`absolute -bottom-1 -right-1 w-4 h-4 md:w-6 md:h-6 rounded-full border-[2px] md:border-[4px] border-white ${member.status === AttendanceStatus.ONLINE ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]' : 'bg-slate-300'}`}></div>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs md:text-base font-black text-slate-900 uppercase truncate">{member.name}</p>
-                        <p className="text-[8px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest">{member.rollNumber}</p>
+                        <p className="text-xs md:text-base font-black text-slate-900 uppercase truncate">{member.name || 'UNKNOWN'}</p>
+                        <p className="text-[8px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest">{member.rollNumber || 'N/A'}</p>
                       </div>
                     </div>
                   ))}
@@ -206,13 +273,13 @@ const DashboardModule: React.FC<Props> = ({ user, onNavigate, onSelectUser }) =>
                     <div key={log.id} className="space-y-2">
                       <div className="flex justify-between items-center px-1">
                         <span className={`text-[8px] md:text-[10px] font-black uppercase tracking-widest ${isAdmin ? 'text-cyan-400' : 'text-indigo-400'}`}>
-                          {isAdmin ? (allUsers.find(u => u.id === log.studentId)?.name.split(' ')[0].toUpperCase() || 'USER') : `LOG_${idx + 1}`}
+                          {isAdmin ? (users.find(u => u.id === log.studentId)?.name?.split(' ')[0]?.toUpperCase() || 'USER') : `LOG_${idx + 1}`}
                         </span>
                         <span className="text-[7px] md:text-[9px] font-black text-slate-500 uppercase tracking-widest">{getTimeAgo(log.timestamp)}</span>
                       </div>
-                      <div className="p-3.5 md:p-5 bg-white/5 rounded-2xl border border-indigo-500/10 hover:border-indigo-500/20 transition-colors">
-                        <p className="text-[11px] md:text-sm font-medium text-slate-300 leading-relaxed line-clamp-2">{log.content}</p>
-                      </div>
+                        <div className="p-3.5 md:p-5 bg-white/5 rounded-2xl border border-indigo-500/10 hover:border-indigo-500/20 transition-colors">
+                          <p className="text-[11px] md:text-sm font-medium text-slate-300 leading-relaxed line-clamp-2">{log.content || 'No content'}</p>
+                        </div>
                     </div>
                   ))}
                 </div>

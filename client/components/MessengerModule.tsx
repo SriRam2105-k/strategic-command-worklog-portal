@@ -12,23 +12,83 @@ const MessengerModule: React.FC<Props> = ({ user }) => {
   const [activeThread, setActiveThread] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
+  const [isSending, setIsSending] = useState(false);
   const [isMobileThreadListOpen, setIsMobileThreadListOpen] = useState(true);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Use UserRole.COMMANDER as defined in types.ts
   const isCommander = user.role === UserRole.ADMIN;
-  // Use UserRole.OPERATIVE as defined in types.ts
-  const operatives = dataService.getUsers().filter(u => u.role === UserRole.STUDENT);
+  const [chatSearch, setChatSearch] = useState('');
+
+  // Use useMemo to sort and filter operatives for the admin thread list
+  const sortedOperatives = React.useMemo(() => {
+    const allOps = dataService.getUsers().filter(u => u.role === UserRole.STUDENT);
+    
+    // Create a map of latest message and unread count per student
+    const threadStats = new Map();
+    allOps.forEach(op => {
+      const threadMsgs = messages.filter(m => m.senderId === op.id || m.recipientId === op.id);
+      const latestMsg = threadMsgs.length > 0 
+        ? threadMsgs.reduce((latest, m) => new Date(m.timestamp) > new Date(latest.timestamp) ? m : latest) 
+        : null;
+      const unreadCount = threadMsgs.filter(m => m.recipientId === user.id && m.status !== 'READ').length;
+      threadStats.set(op.id, { latestMsg, unreadCount });
+    });
+
+    return allOps
+      .filter(op => 
+        op.name.toLowerCase().includes(chatSearch.toLowerCase()) || 
+        op.rollNumber.toLowerCase().includes(chatSearch.toLowerCase())
+      )
+      .sort((a, b) => {
+        const statsA = threadStats.get(a.id);
+        const statsB = threadStats.get(b.id);
+        
+        // 1. Unread messages first
+        if (statsA.unreadCount > 0 && statsB.unreadCount === 0) return -1;
+        if (statsA.unreadCount === 0 && statsB.unreadCount > 0) return 1;
+        
+        // 2. Most recent message first
+        if (statsA.latestMsg && statsB.latestMsg) {
+          return new Date(statsB.latestMsg.timestamp).getTime() - new Date(statsA.latestMsg.timestamp).getTime();
+        }
+        if (statsA.latestMsg) return -1;
+        if (statsB.latestMsg) return 1;
+        
+        return a.name.localeCompare(b.name);
+      })
+      .slice(0, 10);
+  }, [messages, user.id, chatSearch]);
 
   useEffect(() => {
     setMessages(dataService.getMessages());
-    const interval = setInterval(() => setMessages(dataService.getMessages()), 2000);
+    dataService.fetchMessages().then(msgs => setMessages([...msgs]));
+    const interval = setInterval(() => {
+      dataService.fetchMessages().then(msgs => setMessages([...msgs]));
+    }, 2000);
     return () => clearInterval(interval);
   }, []);
 
+  const [isAtBottom, setIsAtBottom] = useState(true);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const handleScroll = () => {
+    if (!scrollContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+    const atBottom = scrollHeight - scrollTop - clientHeight < 100;
+    setIsAtBottom(atBottom);
+  };
+
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, activeThread]);
+    if (isAtBottom) {
+      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'auto' });
+    setIsAtBottom(true);
+  }, [activeThread]);
 
   useEffect(() => {
     const markRead = (msgs: Message[]) => {
@@ -58,8 +118,8 @@ const MessengerModule: React.FC<Props> = ({ user }) => {
     }
   });
 
-  const handleSend = () => {
-    if (!newMessage.trim() || (isCommander && !activeThread)) return;
+  const handleSend = async () => {
+    if (!newMessage.trim() || (isCommander && !activeThread) || isSending) return;
     const admin = dataService.getUsers().find((u: User) => u.role === UserRole.ADMIN);
     const recipientId = isCommander ? activeThread! : (admin?.id || 'admin-not-found');
 
@@ -68,17 +128,26 @@ const MessengerModule: React.FC<Props> = ({ user }) => {
       return;
     }
 
-    dataService.sendMessage({
-      senderId: user.id,
-      recipientId,
-      senderRole: user.role,
-      // Use UserRole.OPERATIVE and COMMANDER as defined in types.ts
-      recipientRole: isCommander ? UserRole.STUDENT : UserRole.ADMIN,
-      content: newMessage
-    });
-
+    setIsSending(true);
+    const msgContent = newMessage;
     setNewMessage('');
-    setMessages(dataService.getMessages());
+
+    try {
+      await dataService.sendMessage({
+        senderId: user.id,
+        recipientId,
+        senderRole: user.role,
+        recipientRole: isCommander ? UserRole.STUDENT : UserRole.ADMIN,
+        content: msgContent
+      });
+      const msgs = await dataService.fetchMessages();
+      setMessages([...msgs]);
+    } catch (error) {
+      console.error("Failed to send message:", error);
+      setNewMessage(msgContent); // return the exact text on UI
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const handleSelectThread = (id: string) => {
@@ -100,30 +169,61 @@ const MessengerModule: React.FC<Props> = ({ user }) => {
               <input
                 type="text"
                 placeholder="Search Students..."
-                className="w-full pl-11 pr-4 py-3 bg-white border border-slate-100 rounded-xl text-[10px] font-black uppercase tracking-widest outline-none transition-all"
+                value={chatSearch}
+                onChange={(e) => setChatSearch(e.target.value)}
+                className="w-full pl-11 pr-4 py-3 bg-white border border-slate-100 rounded-xl text-[10px] font-black uppercase tracking-widest outline-none focus:ring-2 ring-indigo-500 transition-all"
               />
             </div>
           </div>
           <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-2 custom-scrollbar">
-            {operatives.map(op => (
-              <button
-                key={op.id}
-                onClick={() => handleSelectThread(op.id)}
-                className={`w-full p-3.5 md:p-4 rounded-xl md:rounded-2xl flex items-center gap-3 transition-all ${activeThread === op.id ? 'bg-indigo-600 text-white shadow-lg' : 'hover:bg-slate-50 text-slate-600 border border-transparent'
-                  }`}
-              >
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-xs shrink-0 ${activeThread === op.id ? 'bg-white/20' : 'bg-indigo-100 text-indigo-600'
-                  }`}>
-                  {op.name[0]}
-                </div>
-                <div className="text-left overflow-hidden">
-                  <p className="text-[11px] font-black uppercase tracking-tight truncate">{op.name}</p>
-                  <p className={`text-[9px] font-bold uppercase tracking-widest ${activeThread === op.id ? 'text-indigo-100' : 'text-slate-400'}`}>
-                    {op.rollNumber}
-                  </p>
-                </div>
-              </button>
-            ))}
+            {sortedOperatives.map(op => {
+              const opMessages = messages.filter(m => m.senderId === op.id || m.recipientId === op.id);
+              const unreadCount = opMessages.filter(m => m.recipientId === user.id && m.status !== 'READ').length;
+              const lastMsg = opMessages.length > 0 
+                ? opMessages.reduce((latest, m) => new Date(m.timestamp) > new Date(latest.timestamp) ? m : latest)
+                : null;
+              
+              return (
+                <button
+                  key={op.id}
+                  onClick={() => handleSelectThread(op.id)}
+                  className={`w-full p-3.5 md:p-4 rounded-xl md:rounded-2xl flex items-center gap-3 transition-all relative group ${activeThread === op.id ? 'bg-indigo-600 text-white shadow-lg' : 'hover:bg-slate-50 text-slate-600 border border-transparent'
+                    }`}
+                >
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-xs shrink-0 ${activeThread === op.id ? 'bg-white/20' : 'bg-indigo-100 text-indigo-600'
+                    }`}>
+                    {op.name[0]}
+                  </div>
+                  <div className="text-left overflow-hidden flex-1">
+                    <div className="flex justify-between items-center mb-0.5">
+                      <p className="text-[11px] font-black uppercase tracking-tight truncate mr-2">{op.name}</p>
+                      {lastMsg && (
+                        <span className={`text-[7px] font-bold ${activeThread === op.id ? 'text-indigo-200' : 'text-slate-400'}`}>
+                          {new Date(lastMsg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <p className={`text-[9px] font-bold uppercase tracking-widest ${activeThread === op.id ? 'text-indigo-100' : 'text-slate-400'}`}>
+                        {op.rollNumber}
+                      </p>
+                      {unreadCount > 0 && (
+                        <div className={`px-1.5 py-0.5 rounded-full text-[8px] font-black ${activeThread === op.id ? 'bg-white text-indigo-600' : 'bg-rose-500 text-white animate-pulse shadow-[0_0_8px_rgba(244,63,94,0.4)]'
+                          }`}>
+                          {unreadCount}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+            {sortedOperatives.length === 0 && (
+              <div className="py-10 text-center space-y-2 opacity-40">
+                <Search size={24} className="mx-auto text-slate-300" />
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Zero Operatives Found</p>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -146,7 +246,7 @@ const MessengerModule: React.FC<Props> = ({ user }) => {
                 </div>
                 <div className="overflow-hidden">
                   <p className="text-[11px] font-black uppercase tracking-tight text-slate-800 truncate">
-                    {isCommander ? operatives.find(s => s.id === activeThread)?.name : 'ADMIN'}
+                    {isCommander ? dataService.getUsers().find(s => s.id === activeThread)?.name : 'ADMIN'}
                   </p>
                   <p className="text-[8px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> SECURE CONNECTION ACTIVE
@@ -155,7 +255,11 @@ const MessengerModule: React.FC<Props> = ({ user }) => {
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 md:space-y-6 custom-scrollbar">
+            <div 
+              ref={scrollContainerRef}
+              onScroll={handleScroll}
+              className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 md:space-y-6 custom-scrollbar"
+            >
               {filteredMessages.map(msg => (
                 <div key={msg.id} className={`flex ${msg.senderId === user.id ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[85%] sm:max-w-[70%] space-y-1`}>
@@ -181,8 +285,8 @@ const MessengerModule: React.FC<Props> = ({ user }) => {
                   placeholder="Type a message..."
                   className="flex-1 bg-transparent border-none focus:ring-0 text-xs md:text-sm font-bold text-slate-700 px-3"
                 />
-                <button onClick={handleSend} disabled={!newMessage.trim()} className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-lg hover:scale-105 transition-all disabled:opacity-50">
-                  <Send size={18} />
+                <button onClick={handleSend} disabled={!newMessage.trim() || isSending} className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-lg hover:scale-105 transition-all disabled:opacity-50">
+                  {isSending ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Send size={18} />}
                 </button>
               </div>
             </div>
